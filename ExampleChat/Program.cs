@@ -46,7 +46,7 @@ namespace ExampleChat
                     }
                     else
                     {
-                        Console.WriteLine(">> Unicast message from client\t"+message);
+                        Console.WriteLine(">> Unicast message from client\t" + message);
                         Unicast(message, GetReceiverId(message));
                         Outbox.Dequeue();
                     }
@@ -72,7 +72,7 @@ namespace ExampleChat
             foreach (handleClinet client in listOfClients)
             {
                 if (client.clNo != senderId) //send the message to all 
-                                          //clients except the sender
+                                             //clients except the sender
                 {
                     //clientMapping[clientid].Send(Encoding.ASCII.GetBytes(msg));
                     handleClinet.SendOverNetworkStream(msg, client.clientSocket.GetStream());
@@ -86,7 +86,7 @@ namespace ExampleChat
             int port = int.Parse(ConfigurationManager.AppSettings["connectionManager:port"]);
 
             TcpListener serverSocket = new TcpListener(Dns.GetHostEntry(Dns.GetHostName()).AddressList[0], port);
-            
+
             TcpClient clientSocket = default(TcpClient);
             int counter = 0;
 
@@ -106,10 +106,10 @@ namespace ExampleChat
                 Console.WriteLine(" >> " + "Client No:" + Convert.ToString(counter) + " started!");
                 handleClinet client = new handleClinet();
                 client.startClient(clientSocket, Convert.ToString(counter));
-                
+
                 //Make a list of clients
                 listOfClients.Add(client);
-                
+
             }
 
             clientSocket.Close();
@@ -222,7 +222,7 @@ namespace ExampleChat
             //}
         }
 
-            public static void SendOverNetworkStream(string dataFromClient, NetworkStream networkStream)
+        public static void SendOverNetworkStream(string dataFromClient, NetworkStream networkStream)
         {
             //Get the length of message in terms of number of bytes
             int messageLength = Encoding.ASCII.GetByteCount(dataFromClient);

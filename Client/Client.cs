@@ -102,10 +102,10 @@ namespace ClientLib
         //https://stackoverflow.com/questions/7099875/sending-messages-and-files-over-networkstream
         private static string ReceiveFromServerStream(NetworkStream serverStream)
         {
-            // Client side
+            //// Client side
             
-            var bin = new BinaryFormatter();
-            listOfClients = (List<string>)bin.Deserialize(serverStream);
+            //var bin = new BinaryFormatter();
+            //listOfClients = (List<string>)bin.Deserialize(serverStream);
 
             //Read the length of incoming message from the server stream
             byte[] msgLengthBytes1 = new byte[sizeof(int)];
@@ -146,18 +146,6 @@ namespace ClientLib
             var bin = new BinaryFormatter();
             //Sending bytes / actual object; which one is better?
             bin.Serialize(serverStream, message);
-
-            //Get the length of message in terms of number of bytes
-            int messageLength = Encoding.ASCII.GetByteCount(message);
-
-            //lengthBytes are first 4 bytes in stream that contain
-            //message length as integer
-            byte[] lengthBytes = BitConverter.GetBytes(messageLength);
-            serverStream.Write(lengthBytes, 0, lengthBytes.Length);
-
-            //Write the message to the server stream
-            byte[] outStream = Encoding.ASCII.GetBytes(message);
-            serverStream.Write(outStream, 0, outStream.Length);
 
             //ReceiveFromServerStream(serverStream);
             serverStream.Flush();
