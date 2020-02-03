@@ -1,36 +1,61 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
-namespace ConsoleApp1
+namespace ClientLib
 {
     public class Client
     {
         private string Id;
-        static void Main(string[] args)
+        public Queue<string> Inbox = new Queue<string>();
+        Client()
         {
             TcpClient clientSocket = new TcpClient();
             NetworkStream serverStream;
 
-            Console.WriteLine("Client Started");
             clientSocket.Connect(Dns.GetHostEntry(Dns.GetHostName()).AddressList[0], 8888);
-            Console.WriteLine("Client Socket Program - Server Connected...");
-
+            
             serverStream = clientSocket.GetStream();
 
-            Console.WriteLine("My Id is " + ReceiveFromServerStream(serverStream));
-
-            Thread receiverThread = new Thread(() => ReceiverPrinterThreadFunction(serverStream));
+            Id = ReceiveFromServerStream(serverStream);
+            
+            Thread receiverThread = new Thread(() => MessageReceiverThreadFunction(serverStream));
             receiverThread.Start();
 
             while (true)
             {
-                SendToServerStream(serverStream);
+                SendToServerStream(serverStream,"Assalamu Alaikum!");
             }
+        }
 
-            //Console.Read();
+        public Message Broadcast(string message)
+        {
+            Message m = new Message
+            {
+                Broadcast = true,
+                SenderClientID = Id,
+                MessageBody = message,
+                ReceiverClientID = null
+            };
+            return m;
+        }
+
+        public Message Unicast(string message, string receiverId)
+        {
+            Message m = new Message
+            {
+                Broadcast = false,
+                SenderClientID = Id,
+                MessageBody = message,
+                ReceiverClientID = receiverId
+            };
+            return m;
         }
 
         private static string GetMessageText(string msg)
@@ -55,23 +80,33 @@ namespace ConsoleApp1
             return (words[3] == "1");
         }
 
-        private static void ReceiverPrinterThreadFunction(NetworkStream stream)
+        //public static void Unicast(string msg, string receiverId)
+        //{
+        //    //TODO: 
+        //}
+
+        //public static void Broadcast(string msg)
+        //{
+        //    //TODO: Turn on boolean braodcast flag in message object
+        //}
+
+        private void MessageReceiverThreadFunction(NetworkStream stream)
         {
             while (true)
             {
                 string dataFromServer = ReceiveFromServerStream(stream);
-
-                //Print the message to the console
-                //Console.WriteLine(" >> " + "Message received from Client-{0}", GetSenderId(dataFromServer) + "\t" + GetMessageText(dataFromServer) + "\n");
-
-                Console.WriteLine(dataFromServer);
-
+                Inbox.Enqueue(dataFromServer);
             }
         }
 
         //https://stackoverflow.com/questions/7099875/sending-messages-and-files-over-networkstream
         private static string ReceiveFromServerStream(NetworkStream serverStream)
         {
+            // Client side
+            
+            var bin = new BinaryFormatter();
+            listOfClients = (List<string>)bin.Deserialize(serverStream);
+
             //Read the length of incoming message from the server stream
             byte[] msgLengthBytes1 = new byte[sizeof(int)];
             serverStream.Read(msgLengthBytes1, 0, msgLengthBytes1.Length);
@@ -85,17 +120,32 @@ namespace ConsoleApp1
             //convert the byte array to message string
             string dataFromServer = Encoding.ASCII.GetString(inStream);
 
-            //Console.WriteLine(dataFromServer);
-
             return dataFromServer;
         }
 
-        private static void SendToServerStream(NetworkStream serverStream)
+        private static void SendToServerStream(NetworkStream serverStream, string message)
         {
-            
-            Console.WriteLine("Type a message to be sent to the server.\n");
-            Console.WriteLine("Follow message format\n\n message_senderID_ReceiverId_BroadcastTrue/False\n\n");
-            string message = Console.ReadLine();
+            //Get the length of message in terms of number of bytes
+            int messageLength = Encoding.ASCII.GetByteCount(message);
+
+            //lengthBytes are first 4 bytes in stream that contain
+            //message length as integer
+            byte[] lengthBytes = BitConverter.GetBytes(messageLength);
+            serverStream.Write(lengthBytes, 0, lengthBytes.Length);
+
+            //Write the message to the server stream
+            byte[] outStream = Encoding.ASCII.GetBytes(message);
+            serverStream.Write(outStream, 0, outStream.Length);
+
+            //ReceiveFromServerStream(serverStream);
+            serverStream.Flush();
+        }
+
+        private static void SendToServerStream(NetworkStream serverStream, Message message)
+        {
+            var bin = new BinaryFormatter();
+            //Sending bytes / actual object; which one is better?
+            bin.Serialize(serverStream, message);
 
             //Get the length of message in terms of number of bytes
             int messageLength = Encoding.ASCII.GetByteCount(message);
@@ -108,7 +158,7 @@ namespace ConsoleApp1
             //Write the message to the server stream
             byte[] outStream = Encoding.ASCII.GetBytes(message);
             serverStream.Write(outStream, 0, outStream.Length);
-           
+
             //ReceiveFromServerStream(serverStream);
             serverStream.Flush();
         }

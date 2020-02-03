@@ -85,7 +85,7 @@ namespace ExampleChat
             //Read the port number from app.config file
             int port = int.Parse(ConfigurationManager.AppSettings["connectionManager:port"]);
 
-            TcpListener serverSocket = new TcpListener(Dns.GetHostEntry(Dns.GetHostName()).AddressList[0], 8888);
+            TcpListener serverSocket = new TcpListener(Dns.GetHostEntry(Dns.GetHostName()).AddressList[0], port);
             
             TcpClient clientSocket = default(TcpClient);
             int counter = 0;
@@ -95,8 +95,9 @@ namespace ExampleChat
 
             counter = 0;
 
-            Thread senderThread = new Thread(MessageSender);
-            senderThread.Start();
+            //Thread senderThread = new Thread(MessageSender);
+            //senderThread.Start();
+
 
             while (true)
             {
@@ -125,6 +126,7 @@ namespace ExampleChat
     {
         public TcpClient clientSocket;
         public string clNo;
+
         public void startClient(TcpClient inClientSocket, string clineNo)
         {
             this.clientSocket = inClientSocket;
@@ -133,7 +135,23 @@ namespace ExampleChat
             Thread ctThread = new Thread(doChat);
             ctThread.Start();
         }
-        
+
+        // Generate a random string with a given size  
+        public static string RandomString(int size, bool lowerCase)
+        {
+            StringBuilder builder = new StringBuilder();
+            Random random = new Random();
+            char ch;
+            for (int i = 0; i < size; i++)
+            {
+                ch = Convert.ToChar(Convert.ToInt32(Math.Floor(26 * random.NextDouble() + 65)));
+                builder.Append(ch);
+            }
+            if (lowerCase)
+                return builder.ToString().ToLower();
+            return builder.ToString();
+        }
+
         private void doChat()
         {
             int requestCount = 0;
@@ -144,35 +162,67 @@ namespace ExampleChat
             //string rCount = null;
             //requestCount = 0;
 
-            while ((true))
+            //int i = 10;
+            try
             {
-                try
+                do
                 {
-                    requestCount += 1;
-                    NetworkStream networkStream = clientSocket.GetStream();
-                    while (clientSocket.Connected)
-                    {
-                        if (networkStream.CanRead)
-                        {
-                            dataFromClient = ReadFromNetworkStream(networkStream);
-                            Program.Outbox.Enqueue(dataFromClient);
-                        }
-                        else
-                        {
-                            networkStream.Close();
-                            return;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(" >> " + ex.ToString());
-                    //Thread.CurrentThread.Abort();
-                }
+                    SendOverNetworkStream(RandomString(20, true), clientSocket.GetStream());
+                    //--i;
+                } while (true);
             }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+            catch (System.IO.IOException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(" >> " + ex.ToString());
+            }
+
+
+            //while ((true))
+            //{
+
+            //    try
+            //    {
+            //        requestCount += 1;
+            //        NetworkStream networkStream = clientSocket.GetStream();
+            //        while (clientSocket.Connected)
+            //        {
+            //            if (networkStream.CanRead)
+            //            {
+            //                dataFromClient = ReadFromNetworkStream(networkStream);
+            //                Program.Outbox.Enqueue(dataFromClient);
+            //            }
+            //            else
+            //            {
+            //                networkStream.Close();
+            //                return;
+            //            }
+            //        }
+            //    }
+            //    catch (InvalidOperationException)
+            //    {
+            //        break;
+            //    }
+            //    catch (System.IO.IOException)
+            //    {
+            //        return;
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        Console.WriteLine(" >> " + ex.ToString());
+            //        //Thread.CurrentThread.Abort();
+            //    }
+            //}
         }
 
-        public static void SendOverNetworkStream(string dataFromClient, NetworkStream networkStream)
+            public static void SendOverNetworkStream(string dataFromClient, NetworkStream networkStream)
         {
             //Get the length of message in terms of number of bytes
             int messageLength = Encoding.ASCII.GetByteCount(dataFromClient);
