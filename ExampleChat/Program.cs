@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Net;
 using System.Collections.Generic;
+using System.Configuration;
 
 namespace ExampleChat
 {
@@ -81,8 +82,11 @@ namespace ExampleChat
 
         static void Main(string[] args)
         {
-            
+            //Read the port number from app.config file
+            int port = int.Parse(ConfigurationManager.AppSettings["connectionManager:port"]);
+
             TcpListener serverSocket = new TcpListener(Dns.GetHostEntry(Dns.GetHostName()).AddressList[0], 8888);
+            
             TcpClient clientSocket = default(TcpClient);
             int counter = 0;
 

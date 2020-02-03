@@ -25,9 +25,12 @@ namespace ConsoleApp1
             Thread receiverThread = new Thread(() => ReceiverPrinterThreadFunction(serverStream));
             receiverThread.Start();
 
-            SendToServerStream(serverStream);
+            while (true)
+            {
+                SendToServerStream(serverStream);
+            }
 
-            Console.Read();
+            //Console.Read();
         }
 
         private static string GetMessageText(string msg)
@@ -54,10 +57,14 @@ namespace ConsoleApp1
 
         private static void ReceiverPrinterThreadFunction(NetworkStream stream)
         {
-            string dataFromServer = ReceiveFromServerStream(stream);
+            while (true)
+            {
+                string dataFromServer = ReceiveFromServerStream(stream);
 
-            //Print the message to the console
-            Console.WriteLine(" >> " + "Message received from Client-{0}", GetSenderId(dataFromServer) + "\t" + GetMessageText(dataFromServer)+"\n");
+                //Print the message to the console
+                Console.WriteLine(" >> " + "Message received from Client-{0}", GetSenderId(dataFromServer) + "\t" + GetMessageText(dataFromServer) + "\n");
+
+            }
         }
 
         //https://stackoverflow.com/questions/7099875/sending-messages-and-files-over-networkstream
@@ -76,7 +83,7 @@ namespace ConsoleApp1
             //convert the byte array to message string
             string dataFromServer = Encoding.ASCII.GetString(inStream);
 
-            Console.WriteLine(dataFromServer);
+            //Console.WriteLine(dataFromServer);
 
             return dataFromServer;
         }
