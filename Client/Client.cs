@@ -13,25 +13,27 @@ namespace ClientLib
     public class Client
     {
         private string Id;
-        public Queue<string> Inbox = new Queue<string>();
+        public Queue<Message> Inbox = new Queue<Message>();
+        private NetworkStream serverStream;
+        private TcpClient clientSocket;
+        
         Client()
         {
-            TcpClient clientSocket = new TcpClient();
-            NetworkStream serverStream;
-
+            clientSocket = new TcpClient();
+            
             clientSocket.Connect(Dns.GetHostEntry(Dns.GetHostName()).AddressList[0], 8888);
             
             serverStream = clientSocket.GetStream();
 
-            Id = ReceiveFromServerStream(serverStream);
+            //Id = ReceiveFromServerStream(serverStream);
             
             Thread receiverThread = new Thread(() => MessageReceiverThreadFunction(serverStream));
             receiverThread.Start();
 
-            while (true)
-            {
-                SendToServerStream(serverStream,"Assalamu Alaikum!");
-            }
+            //while (true)
+            //{
+            //    SendToServerStream(serverStream,"Assalamu Alaikum!");
+            //}
         }
 
         public Message Broadcast(string message)
@@ -43,6 +45,7 @@ namespace ClientLib
                 MessageBody = message,
                 ReceiverClientID = null
             };
+            SendToServerStream(serverStream, m);
             return m;
         }
 
@@ -94,34 +97,34 @@ namespace ClientLib
         {
             while (true)
             {
-                string dataFromServer = ReceiveFromServerStream(stream);
+                Message dataFromServer = ReceiveFromServerStream(stream);
                 Inbox.Enqueue(dataFromServer);
             }
         }
 
         //https://stackoverflow.com/questions/7099875/sending-messages-and-files-over-networkstream
-        private static string ReceiveFromServerStream(NetworkStream serverStream)
-        {
-            //// Client side
+        //private static string ReceiveFromServerStream(NetworkStream serverStream)
+        //{
+        //    //// Client side
             
-            //var bin = new BinaryFormatter();
-            //listOfClients = (List<string>)bin.Deserialize(serverStream);
+        //    //var bin = new BinaryFormatter();
+        //    //listOfClients = (List<string>)bin.Deserialize(serverStream);
 
-            //Read the length of incoming message from the server stream
-            byte[] msgLengthBytes1 = new byte[sizeof(int)];
-            serverStream.Read(msgLengthBytes1, 0, msgLengthBytes1.Length);
-            //store the length of message as an integer
-            int msgLength1 = BitConverter.ToInt32(msgLengthBytes1, 0);
+        //    //Read the length of incoming message from the server stream
+        //    byte[] msgLengthBytes1 = new byte[sizeof(int)];
+        //    serverStream.Read(msgLengthBytes1, 0, msgLengthBytes1.Length);
+        //    //store the length of message as an integer
+        //    int msgLength1 = BitConverter.ToInt32(msgLengthBytes1, 0);
 
-            //create a buffer for incoming data of size equal to length of message
-            byte[] inStream = new byte[msgLength1];
-            //read that number of bytes from the server stream
-            serverStream.Read(inStream, 0, msgLength1);
-            //convert the byte array to message string
-            string dataFromServer = Encoding.ASCII.GetString(inStream);
+        //    //create a buffer for incoming data of size equal to length of message
+        //    byte[] inStream = new byte[msgLength1];
+        //    //read that number of bytes from the server stream
+        //    serverStream.Read(inStream, 0, msgLength1);
+        //    //convert the byte array to message string
+        //    string dataFromServer = Encoding.ASCII.GetString(inStream);
 
-            return dataFromServer;
-        }
+        //    return dataFromServer;
+        //}
 
         private static void SendToServerStream(NetworkStream serverStream, string message)
         {
@@ -149,6 +152,14 @@ namespace ClientLib
 
             //ReceiveFromServerStream(serverStream);
             serverStream.Flush();
+        }
+
+        private Message ReceiveFromServerStream(NetworkStream networkStream)
+        {
+            // Client side
+            var bin = new BinaryFormatter();
+            Message m1 = (Message)bin.Deserialize(networkStream);
+            return m1;
         }
     }
 }

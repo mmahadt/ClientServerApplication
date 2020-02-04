@@ -1,4 +1,5 @@
 ﻿using System;
+using ClientLib;
 
 namespace Application
 {
@@ -7,7 +8,15 @@ namespace Application
         static void Main(string[] args)
         {
             Console.WriteLine("Welcome to chat application");
-            GetInputFromUser();
+
+            if (GetInputFromUser().Broadcast)
+            {
+
+            }
+            else
+            {
+
+            }
         }
 
         //static void MessagePrinter(Message message)
@@ -15,7 +24,7 @@ namespace Application
 
         //}
 
-        static void GetInputFromUser()
+        static Message GetInputFromUser()
         {
             Console.WriteLine("Input Sender ID");
             string sender = Console.ReadLine();
@@ -29,7 +38,19 @@ namespace Application
             Console.WriteLine("Is it Broadcast? Type yes or no)");
             string inputString = Console.ReadLine();
             bool broadcast = inputString.ToLower() == "yes" || inputString.ToLower() == "y";
+
+            Message m1 = new Message
+            {
+                Broadcast = broadcast,
+                SenderClientID = sender,
+                ReceiverClientID = receiver,
+                MessageBody = message
+            };
+
+            return m1;
         }
+
+        
 
         //public void PrintInbox(Client c)
         //{

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace ClientLib
 {
+    [Serializable]
     public class Message : IMessage
     {
         public string SenderClientID
