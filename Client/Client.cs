@@ -12,25 +12,43 @@ namespace ClientLib
 {
     public class Client
     {
-        private string Id;
+        public string Id;
         public Queue<Message> Inbox = new Queue<Message>();
         private NetworkStream serverStream;
         private TcpClient clientSocket;
         
-        Client()
+        public Client()
         {
-            clientSocket = new TcpClient();
-            
-            clientSocket.Connect(Dns.GetHostEntry(Dns.GetHostName()).AddressList[0], 8888);
-            
-            serverStream = clientSocket.GetStream();
+            try
+            {
+                clientSocket = new TcpClient();
 
-            Thread receiverThread = new Thread(() => MessageReceiverThreadFunction(serverStream));
-            receiverThread.Start();
+                clientSocket.Connect(Dns.GetHostEntry(Dns.GetHostName()).AddressList[0], 8888);
 
-            //First message sent to each client is from server containing 
+                Message dataFromServer = ReceiveFromServerStream();
+                Inbox.Enqueue(dataFromServer);
+
+                Thread receiverThread = new Thread(MessageReceiverThreadFunction);
+                receiverThread.Start();
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+            catch (System.IO.IOException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(" >> " + ex.ToString());
+            }
+            //First message sent to each client is from server containing
             //id assigned by the server
+            
             Id = Inbox.Dequeue().MessageBody;
+            
+            
         }
 
         public Message Broadcast(string message)
@@ -42,7 +60,7 @@ namespace ClientLib
                 MessageBody = message,
                 ReceiverClientID = null
             };
-            SendToServerStream(serverStream, m);
+            SendToServerStream(m);
             return m;
         }
 
@@ -55,31 +73,37 @@ namespace ClientLib
                 MessageBody = message,
                 ReceiverClientID = receiverId
             };
-            SendToServerStream(serverStream, m);
+            SendToServerStream(m);
             return m;
         }
 
-        private void MessageReceiverThreadFunction(NetworkStream stream)
+        private void MessageReceiverThreadFunction()
         {
             while (true)
             {
-                Message dataFromServer = ReceiveFromServerStream(stream);
-                Inbox.Enqueue(dataFromServer);
+                if (serverStream.DataAvailable)
+                {
+                    Message dataFromServer = ReceiveFromServerStream();
+                    Inbox.Enqueue(dataFromServer);
+                }         
             }
         }
 
-        private static void SendToServerStream(NetworkStream serverStream, Message message)
+        public void SendToServerStream(Message message)
         {
             var bin = new BinaryFormatter();
             bin.Serialize(serverStream, message);
             serverStream.Flush();
         }
 
-        private Message ReceiveFromServerStream(NetworkStream networkStream)
+        public Message ReceiveFromServerStream()
         {
             // Client side
+            
             var bin = new BinaryFormatter();
-            Message m1 = (Message)bin.Deserialize(networkStream);
+            Message m1 = (Message)bin.Deserialize(serverStream);
+            
+            serverStream.Flush();
             return m1;
         }
     }

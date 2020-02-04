@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using ClientLib;
 
 namespace Application
@@ -8,21 +9,28 @@ namespace Application
         static void Main(string[] args)
         {
             Console.WriteLine("Welcome to chat application");
-
-            if (GetInputFromUser().Broadcast)
-            {
-
-            }
-            else
-            {
-
-            }
+            Client c1 = new Client();
+            Console.WriteLine(c1.Id);
+            
+            //InboxPrinter(c1.Inbox);
+            Console.Read();
         }
 
-        //static void MessagePrinter(Message message)
-        //{
+        static void MessagePrinter(Message message)
+        {
+            Console.WriteLine("Sender ID:\t{0}", message.SenderClientID);
+            Console.WriteLine("Receiver ID:\t{0}", message.ReceiverClientID);
+            Console.WriteLine("Message:\t{0}", message.MessageBody);
+            Console.WriteLine("Broadcast:\t{0}", message.Broadcast);
+        }
 
-        //}
+        static void InboxPrinter(Queue<Message> Inbox)
+        {
+            foreach (Message message in Inbox)
+            {
+                MessagePrinter(message);
+            }
+        }
 
         static Message GetInputFromUser()
         {

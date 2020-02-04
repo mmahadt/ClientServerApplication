@@ -5,6 +5,8 @@ using System.Text;
 using System.Net;
 using System.Collections.Generic;
 using System.Configuration;
+using ClientLib;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace ExampleChat
 {
@@ -13,23 +15,7 @@ namespace ExampleChat
         //A list of strings to contain client Ids
         private static List<handleClinet> listOfClients = new List<handleClinet>();
 
-        public static Queue<string> Outbox = new Queue<string>();
-
-        private static string GetSenderId(string msg)
-        {
-            string[] words = msg.Split('_');
-            return words[1];
-        }
-        private static string GetReceiverId(string msg)
-        {
-            string[] words = msg.Split('_');
-            return words[2];
-        }
-        private static bool IsBroadcast(string msg)
-        {
-            string[] words = msg.Split('_');
-            return (words[3] == "1");
-        }
+        public static Queue<Message> Outbox = new Queue<Message>();
 
         private static void MessageSender()
         {
@@ -37,44 +23,42 @@ namespace ExampleChat
             {
                 if (Outbox.Count != 0)
                 {
-                    string message = Outbox.Peek();
-                    if (IsBroadcast(message))
+                    Message message = Outbox.Peek();
+                    if (message.Broadcast)
                     {
-                        Console.WriteLine(">> Broadcast message from client\t" + message);
-                        Broadcast(message, GetSenderId(message));
+                        Console.WriteLine(">> Broadcast message from client\t" + message.MessageBody);
+                        Broadcast(message);
                         Outbox.Dequeue();
                     }
                     else
                     {
-                        Console.WriteLine(">> Unicast message from client\t" + message);
-                        Unicast(message, GetReceiverId(message));
+                        Console.WriteLine(">> Unicast message from client\t" + message.MessageBody);
+                        Unicast(message);
                         Outbox.Dequeue();
                     }
                 }
             }
         }
 
-        public static void Unicast(string msg, string receiverId)
+        public static void Unicast(Message msg)
         {
             foreach (handleClinet client in listOfClients)
             {
-                if (client.clNo == receiverId)
+                if (client.clNo == msg.ReceiverClientID)
                 //send message to intended recipient only
                 {
-                    //clientMapping[clientid].Send(Encoding.ASCII.GetBytes(msg));
                     handleClinet.SendOverNetworkStream(msg, client.clientSocket.GetStream());
                 }
             }
         }
 
-        public static void Broadcast(string msg, string senderId)
+        public static void Broadcast(Message msg)
         {
             foreach (handleClinet client in listOfClients)
             {
-                if (client.clNo != senderId) //send the message to all 
+                if (client.clNo != msg.SenderClientID) //send the message to all 
                                              //clients except the sender
                 {
-                    //clientMapping[clientid].Send(Encoding.ASCII.GetBytes(msg));
                     handleClinet.SendOverNetworkStream(msg, client.clientSocket.GetStream());
                 }
             }
@@ -95,15 +79,18 @@ namespace ExampleChat
 
             counter = 0;
 
-            //Thread senderThread = new Thread(MessageSender);
-            //senderThread.Start();
+            Thread senderThread = new Thread(MessageSender);
+            senderThread.Start();
 
 
             while (true)
             {
                 counter += 1;
                 clientSocket = serverSocket.AcceptTcpClient();
-                Console.WriteLine(" >> " + "Client No:" + Convert.ToString(counter) + " started!");
+                
+                
+
+                Console.WriteLine(" >> " + "Client No:" + Convert.ToString(counter) + " connected!");
                 handleClinet client = new handleClinet();
                 client.startClient(clientSocket, Convert.ToString(counter));
 
@@ -112,14 +99,12 @@ namespace ExampleChat
 
             }
 
-            clientSocket.Close();
-            serverSocket.Stop();
-            Console.WriteLine(" >> " + "exit");
-            Console.ReadLine();
+            //clientSocket.Close();
+            //serverSocket.Stop();
+            //Console.WriteLine(" >> " + "exit");
+            //Console.ReadLine();
         }
     }
-
-
 
     //Class to handle each client request separatly
     public class handleClinet
@@ -131,126 +116,84 @@ namespace ExampleChat
         {
             this.clientSocket = inClientSocket;
             this.clNo = clineNo;
-            SendOverNetworkStream(Convert.ToString(clineNo), clientSocket.GetStream());
+            
             Thread ctThread = new Thread(doChat);
             ctThread.Start();
         }
 
-        // Generate a random string with a given size  
-        public static string RandomString(int size, bool lowerCase)
-        {
-            StringBuilder builder = new StringBuilder();
-            Random random = new Random();
-            char ch;
-            for (int i = 0; i < size; i++)
-            {
-                ch = Convert.ToChar(Convert.ToInt32(Math.Floor(26 * random.NextDouble() + 65)));
-                builder.Append(ch);
-            }
-            if (lowerCase)
-                return builder.ToString().ToLower();
-            return builder.ToString();
-        }
+
 
         private void doChat()
         {
             int requestCount = 0;
             //byte[] bytesFrom = new byte[10025];
-            string dataFromClient = null;
+            Message dataFromClient = null;
             //Byte[] sendBytes = null;
             //string serverResponse = null;
             //string rCount = null;
             //requestCount = 0;
 
-            //int i = 10;
-            try
+            Message m1 = new Message
             {
-                do
+                Broadcast = false,
+                SenderClientID = null,
+                ReceiverClientID = Convert.ToString(clNo),
+                MessageBody = Convert.ToString(clNo)
+            };
+            SendOverNetworkStream(m1, clientSocket.GetStream());
+
+            while ((true))
+            {
+
+                try
                 {
-                    SendOverNetworkStream(RandomString(20, true), clientSocket.GetStream());
-                    //--i;
-                } while (true);
+                    requestCount += 1;
+                    NetworkStream networkStream = clientSocket.GetStream();
+                    while (clientSocket.Connected)
+                    {
+                        if (networkStream.CanRead)
+                        {
+                            dataFromClient = ReadFromNetworkStream(networkStream);
+                            Program.Outbox.Enqueue(dataFromClient);
+                        }
+                        else
+                        {
+                            networkStream.Close();
+                            return;
+                        }
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    break;
+                }
+                catch (System.IO.IOException)
+                {
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(" >> " + ex.ToString());
+                    //Thread.CurrentThread.Abort();
+                }
             }
-            catch (InvalidOperationException)
-            {
-                return;
-            }
-            catch (System.IO.IOException)
-            {
-                return;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(" >> " + ex.ToString());
-            }
-
-
-            //while ((true))
-            //{
-
-            //    try
-            //    {
-            //        requestCount += 1;
-            //        NetworkStream networkStream = clientSocket.GetStream();
-            //        while (clientSocket.Connected)
-            //        {
-            //            if (networkStream.CanRead)
-            //            {
-            //                dataFromClient = ReadFromNetworkStream(networkStream);
-            //                Program.Outbox.Enqueue(dataFromClient);
-            //            }
-            //            else
-            //            {
-            //                networkStream.Close();
-            //                return;
-            //            }
-            //        }
-            //    }
-            //    catch (InvalidOperationException)
-            //    {
-            //        break;
-            //    }
-            //    catch (System.IO.IOException)
-            //    {
-            //        return;
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        Console.WriteLine(" >> " + ex.ToString());
-            //        //Thread.CurrentThread.Abort();
-            //    }
-            //}
         }
 
-        public static void SendOverNetworkStream(string dataFromClient, NetworkStream networkStream)
+        public static void SendOverNetworkStream(Message message, NetworkStream serverStream)
         {
-            //Get the length of message in terms of number of bytes
-            int messageLength = Encoding.ASCII.GetByteCount(dataFromClient);
-
-            //lengthBytes are first 4 bytes in stream that contain
-            //message length as integer
-            byte[] lengthBytes = BitConverter.GetBytes(messageLength);
-            networkStream.Write(lengthBytes, 0, lengthBytes.Length);
-
-            //Write the message to the server stream
-            byte[] outStream = Encoding.ASCII.GetBytes(dataFromClient);
-            networkStream.Write(outStream, 0, outStream.Length);
-            networkStream.Flush();
+            var bin = new BinaryFormatter();
+            bin.Serialize(serverStream, message);
+            serverStream.Flush();
         }
 
-        private string ReadFromNetworkStream(NetworkStream networkStream)
+        public static Message ReadFromNetworkStream(NetworkStream serverStream)
         {
-            string dataFromClient;
-            byte[] msgLengthBytes = new byte[sizeof(int)];
-            networkStream.Read(msgLengthBytes, 0, msgLengthBytes.Length);
-            int msgLength = BitConverter.ToInt32(msgLengthBytes, 0);
-
-            byte[] inStream = new byte[msgLength];//buffer for incoming data
-            networkStream.Read(inStream, 0, msgLength);
-            dataFromClient = Encoding.ASCII.GetString(inStream);
-            Console.WriteLine(" >> " + "From client-" + clNo + "\t" + dataFromClient);
-
-            return dataFromClient;
+            // Client side
+            var bin = new BinaryFormatter();
+            Message m1 = (Message)bin.Deserialize(serverStream);
+            serverStream.Flush();
+            Console.WriteLine(" >> " + "From client-" + m1.SenderClientID + "\t" + m1.MessageBody);
+            return m1;
         }
     }
 }

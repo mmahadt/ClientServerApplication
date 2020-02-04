@@ -1,14 +1,18 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using ClientLib;
 
 namespace ConsoleApp1
 {
     public class Client
     {
         private string Id;
+        public Queue<Message> Inbox = new Queue<Message>();
+        
         static void Main(string[] args)
         {
             TcpClient clientSocket = new TcpClient();
